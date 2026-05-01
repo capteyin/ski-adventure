@@ -1135,21 +1135,47 @@
             }
             
             spawnCoins() {
-                if (Math.random() < 0.015 + this.level * 0.003) {
-                    const pattern = Math.floor(Math.random() * 3);
-                    const baseY = this.groundY - rand(20, 120);
-                    const startX = this.width + 40;
+                // 检查右侧即将进入的区域是否有障碍物，保持安全距离
+                for (const obs of this.obstacles) {
+                    if (obs.x > this.width && obs.x < this.width + 350) return;
+                }
+                // 避免金币太密集
+                for (const c of this.coinsArr) {
+                    if (c.x > this.width - 80) return;
+                }
+                
+                if (Math.random() < 0.012 + this.level * 0.002) {
+                    // 定义收集轨道，避开空中障碍物高度(groundY-65)
+                    const tracks = [
+                        this.groundY - 32,   // 地面轨道：滑行可捡
+                        this.groundY - 50,   // 低跳轨道：避开空中障碍
+                        this.groundY - 88,   // 高跳轨道
+                        this.groundY - 120   // 极限轨道
+                    ];
+                    
+                    const pattern = Math.floor(Math.random() * 4);
+                    const track = tracks[Math.floor(Math.random() * tracks.length)];
+                    const startX = this.width + 60;
                     
                     if (pattern === 0) {
-                        this.coinsArr.push({ x: startX, y: baseY, collected: false });
+                        // 单币
+                        this.coinsArr.push({ x: startX, y: track, collected: false });
                     } else if (pattern === 1) {
+                        // 水平三连
                         for (let i = 0; i < 3; i++) {
-                            this.coinsArr.push({ x: startX + i * 35, y: baseY, collected: false });
+                            this.coinsArr.push({ x: startX + i * 42, y: track, collected: false });
+                        }
+                    } else if (pattern === 2) {
+                        // 阶梯上升（引导玩家跳跃）
+                        for (let i = 0; i < 4; i++) {
+                            const stepY = this.groundY - 35 - i * 28;
+                            this.coinsArr.push({ x: startX + i * 38, y: stepY, collected: false });
                         }
                     } else {
+                        // 平缓弧线
                         for (let i = 0; i < 5; i++) {
-                            const arcY = baseY - Math.sin(i * 0.6) * 40;
-                            this.coinsArr.push({ x: startX + i * 30, y: arcY, collected: false });
+                            const arcY = this.groundY - 45 - Math.sin(i * 0.5) * 55;
+                            this.coinsArr.push({ x: startX + i * 38, y: arcY, collected: false });
                         }
                     }
                 }
