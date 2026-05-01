@@ -283,7 +283,7 @@
             <p class="subtitle">穿越雪山，挑战极限</p>
             <button class="btn" onclick="game.start()">开始游戏</button>
             <div class="instructions">
-                <p><span>↑</span> <span>空格</span> 跳跃 &nbsp;&nbsp; <span>↓</span> 蹲下 &nbsp;&nbsp; <span>P</span> 暂停</p>
+                <p><span>↑</span> <span>空格/W</span> 跳跃 &nbsp;&nbsp; <span>↓</span> <span>S</span> 蹲下 &nbsp;&nbsp; <span>P</span> 暂停</p>
                 <p>躲避树木和岩石，收集金币和道具，滑得越远越好</p>
             </div>
         </div>
@@ -799,6 +799,7 @@
         class SkiGame {
             constructor() {
                 this.canvas = document.getElementById('gameCanvas');
+                this.canvas.setAttribute('tabindex', '0');
                 this.ctx = this.canvas.getContext('2d');
                 this.width = CONFIG.canvasWidth;
                 this.height = CONFIG.canvasHeight;
@@ -857,14 +858,18 @@
             }
             
             setupInputs() {
-                document.addEventListener('keydown', (e) => {
-                    if (e.code === 'KeyP') {
+                const handleKeyDown = (e) => {
+                    // 支持 e.code 和 e.key 两种写法，兼容更多浏览器
+                    const code = e.code || e.key;
+                    const key = e.key;
+                    
+                    if (code === 'KeyP' || key === 'p' || key === 'P') {
                         e.preventDefault();
                         this.togglePause();
                         return;
                     }
                     if (this.state !== 'playing') {
-                        if (e.code === 'Space' || e.code === 'Enter') {
+                        if (code === 'Space' || key === ' ' || code === 'Enter' || key === 'Enter') {
                             e.preventDefault();
                             if (this.state === 'menu') this.start();
                             else if (this.state === 'gameover') this.restart();
@@ -873,18 +878,40 @@
                         return;
                     }
                     
-                    if ((e.code === 'Space' || e.code === 'ArrowUp') && this.player.onGround) {
+                    // 支持多种按键跳跃：空格、上箭头、W、X、J
+                    const jumpKeys = ['Space', 'ArrowUp', 'KeyW', 'KeyX', 'KeyJ'];
+                    const jumpKeyChars = [' ', 'ArrowUp', 'w', 'W', 'x', 'X', 'j', 'J'];
+                    if ((jumpKeys.includes(code) || jumpKeyChars.includes(key)) && this.player.onGround) {
                         e.preventDefault();
                         this.jump();
                     }
-                    if (e.code === 'ArrowDown') {
+                    // 支持多种按键蹲下：下箭头、S
+                    const duckKeys = ['ArrowDown', 'KeyS'];
+                    const duckKeyChars = ['ArrowDown', 's', 'S'];
+                    if (duckKeys.includes(code) || duckKeyChars.includes(key)) {
                         e.preventDefault();
                         this.player.ducking = true;
                     }
-                });
+                };
                 
-                document.addEventListener('keyup', (e) => {
-                    if (e.code === 'ArrowDown') this.player.ducking = false;
+                const handleKeyUp = (e) => {
+                    const code = e.code || e.key;
+                    const key = e.key;
+                    const duckKeys = ['ArrowDown', 'KeyS'];
+                    const duckKeyChars = ['ArrowDown', 's', 'S'];
+                    if (duckKeys.includes(code) || duckKeyChars.includes(key)) {
+                        this.player.ducking = false;
+                    }
+                };
+                
+                document.addEventListener('keydown', handleKeyDown);
+                document.addEventListener('keyup', handleKeyUp);
+                
+                // 鼠标/触摸点击也能跳跃
+                this.canvas.addEventListener('mousedown', (e) => {
+                    if (this.state === 'playing' && this.player.onGround) {
+                        this.jump();
+                    }
                 });
                 
                 let touchStartY = 0;
