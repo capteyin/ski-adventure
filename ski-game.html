@@ -35,7 +35,7 @@
             left: 50%;
             transform: translateX(-50%);
             display: flex;
-            gap: 16px;
+            gap: 12px;
             pointer-events: none;
             z-index: 10;
         }
@@ -43,7 +43,7 @@
             background: rgba(0,0,0,0.5);
             backdrop-filter: blur(10px);
             border: 1px solid rgba(255,255,255,0.1);
-            padding: 8px 20px;
+            padding: 8px 18px;
             border-radius: 24px;
             color: white;
             font-size: 15px;
@@ -53,6 +53,51 @@
         }
         .ui-item .value {
             color: #fbbf24;
+        }
+        .powerup-slots {
+            position: absolute;
+            top: 60px;
+            left: 16px;
+            display: flex;
+            gap: 8px;
+            pointer-events: none;
+            z-index: 10;
+        }
+        .powerup-slot {
+            width: 40px;
+            height: 40px;
+            background: rgba(0,0,0,0.4);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            opacity: 0.3;
+            transition: opacity 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+        .powerup-slot.active {
+            opacity: 1;
+            border-color: rgba(251, 191, 36, 0.5);
+            box-shadow: 0 0 12px rgba(251, 191, 36, 0.3);
+        }
+        .powerup-timer {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: rgba(255,255,255,0.2);
+            overflow: hidden;
+        }
+        .powerup-timer-bar {
+            height: 100%;
+            background: #fbbf24;
+            width: 0%;
+            transition: width 0.1s linear;
         }
         .screen {
             position: absolute;
@@ -159,6 +204,61 @@
             font-size: 14px;
             color: #94a3b8;
         }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin: 16px 0 28px;
+            text-align: center;
+        }
+        .stat-item {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 12px;
+            padding: 12px 20px;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: #64748b;
+            margin-bottom: 4px;
+        }
+        .stat-value {
+            font-size: 22px;
+            color: #fbbf24;
+            font-weight: bold;
+        }
+        .combo-text {
+            position: absolute;
+            top: 40%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #fbbf24;
+            font-size: 36px;
+            font-weight: bold;
+            pointer-events: none;
+            opacity: 0;
+            z-index: 12;
+            text-shadow: 0 0 20px rgba(251,191,36,0.5);
+            transition: opacity 0.3s;
+        }
+        .combo-text.show {
+            opacity: 1;
+            animation: comboPop 0.8s ease-out forwards;
+        }
+        @keyframes comboPop {
+            0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+            30% { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
+            100% { opacity: 0; transform: translate(-50%, -80%) scale(1); }
+        }
+        .pause-hint {
+            position: absolute;
+            top: 14px;
+            right: 16px;
+            font-size: 12px;
+            color: rgba(255,255,255,0.35);
+            pointer-events: none;
+            z-index: 10;
+        }
     </style>
 </head>
 <body>
@@ -168,7 +268,14 @@
         <div class="ui-overlay">
             <div class="ui-item">🏔️ 关卡 <span class="value" id="levelDisplay">1</span></div>
             <div class="ui-item">🏆 <span class="value" id="scoreDisplay">0</span></div>
+            <div class="ui-item">🪙 <span class="value" id="coinDisplay">0</span></div>
             <div class="ui-item">🎿 <span class="value" id="distanceDisplay">0</span> m</div>
+        </div>
+
+        <div class="powerup-slots" id="powerupSlots">
+            <div class="powerup-slot" id="slotShield" title="护盾">🛡️<div class="powerup-timer"><div class="powerup-timer-bar" id="timerShield"></div></div></div>
+            <div class="powerup-slot" id="slotBoost" title="加速冲刺">⚡<div class="powerup-timer"><div class="powerup-timer-bar" id="timerBoost"></div></div></div>
+            <div class="powerup-slot" id="slotDouble" title="双倍分数">✨<div class="powerup-timer"><div class="powerup-timer-bar" id="timerDouble"></div></div></div>
         </div>
         
         <div id="startScreen" class="screen">
@@ -176,19 +283,40 @@
             <p class="subtitle">穿越雪山，挑战极限</p>
             <button class="btn" onclick="game.start()">开始游戏</button>
             <div class="instructions">
-                <p><span>↑</span> <span>空格</span> 跳跃 &nbsp;&nbsp; <span>↓</span> 蹲下</p>
-                <p>躲避树木和岩石，滑得越远越好</p>
+                <p><span>↑</span> <span>空格</span> 跳跃 &nbsp;&nbsp; <span>↓</span> 蹲下 &nbsp;&nbsp; <span>P</span> 暂停</p>
+                <p>躲避树木和岩石，收集金币和道具，滑得越远越好</p>
             </div>
         </div>
         
         <div id="gameOverScreen" class="screen hidden">
             <h1>💥 摔倒了</h1>
-            <p class="subtitle" id="finalScore">最终分数: 0</p>
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div class="stat-label">最终分数</div>
+                    <div class="stat-value" id="finalScore">0</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">收集金币</div>
+                    <div class="stat-value" id="finalCoins">0</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">最远距离</div>
+                    <div class="stat-value" id="finalDistance">0m</div>
+                </div>
+            </div>
             <p class="high-score" id="highScoreDisplay"></p>
             <button class="btn" onclick="game.restart()">再来一次</button>
         </div>
+
+        <div id="pauseScreen" class="screen hidden">
+            <h1>⏸️ 已暂停</h1>
+            <p class="subtitle">按 P 继续游戏</p>
+            <button class="btn" onclick="game.togglePause()">继续</button>
+        </div>
         
         <div id="levelPopup" class="level-popup">进入关卡 2</div>
+        <div id="comboText" class="combo-text"></div>
+        <div class="pause-hint">P 暂停</div>
     </div>
 
     <script>
@@ -202,7 +330,11 @@
             baseSpeed: 5,
             speedIncrement: 1.2,
             levelDistance: 500,
-            maxLevel: 10
+            maxLevel: 10,
+            powerupDuration: 600,
+            boostSpeedMult: 1.8,
+            coinValue: 50,
+            comboWindow: 120
         };
 
         // ==================== 工具函数 ====================
@@ -212,31 +344,28 @@
 
         // ==================== 精灵绘制 ====================
         const Sprite = {
-            skier(ctx, x, y, state, time) {
+            skier(ctx, x, y, state, time, invincible) {
                 ctx.save();
                 ctx.translate(x, y);
-                
+                if (invincible && Math.floor(time / 60) % 2 === 0) {
+                    ctx.globalAlpha = 0.6;
+                }
                 const bob = state === 'normal' ? Math.sin(time / 90) * 2 : 0;
                 ctx.translate(0, bob);
-                
                 if (state === 'ducking') {
                     ctx.translate(0, 12);
-                    // 身体（蹲下）
                     ctx.fillStyle = '#1e3a5f';
                     ctx.beginPath();
                     ctx.ellipse(0, -18, 20, 14, 0, 0, Math.PI * 2);
                     ctx.fill();
-                    // 头盔
                     ctx.fillStyle = '#ff6b35';
                     ctx.beginPath();
                     ctx.arc(6, -24, 11, Math.PI, 0);
                     ctx.fill();
-                    // 护目镜
                     ctx.fillStyle = '#38bdf8';
                     ctx.beginPath();
                     ctx.ellipse(8, -24, 8, 4, 0, 0, Math.PI * 2);
                     ctx.fill();
-                    // 雪板
                     ctx.fillStyle = '#dc2626';
                     ctx.save();
                     ctx.rotate(0.05);
@@ -245,25 +374,20 @@
                     ctx.restore();
                 } else if (state === 'jumping') {
                     ctx.rotate(-0.25);
-                    // 身体
                     ctx.fillStyle = '#1e3a5f';
                     ctx.fillRect(-9, -38, 18, 28);
-                    // 头
                     ctx.fillStyle = '#fdbf60';
                     ctx.beginPath();
                     ctx.arc(0, -44, 10, 0, Math.PI * 2);
                     ctx.fill();
-                    // 头盔
                     ctx.fillStyle = '#ff6b35';
                     ctx.beginPath();
                     ctx.arc(0, -46, 11, Math.PI, 0);
                     ctx.fill();
-                    // 护目镜
                     ctx.fillStyle = '#38bdf8';
                     ctx.fillRect(-7, -48, 14, 6);
                     ctx.fillStyle = 'rgba(255,255,255,0.4)';
                     ctx.fillRect(-4, -47, 6, 3);
-                    // 手臂（举起）
                     ctx.strokeStyle = '#1e3a5f';
                     ctx.lineWidth = 5;
                     ctx.lineCap = 'round';
@@ -275,7 +399,6 @@
                     ctx.moveTo(6, -32);
                     ctx.lineTo(18, -50);
                     ctx.stroke();
-                    // 围巾（飘起）
                     ctx.fillStyle = '#dc2626';
                     const sw = Math.sin(time / 60) * 8;
                     ctx.beginPath();
@@ -285,7 +408,6 @@
                     ctx.lineTo(-4, -28);
                     ctx.closePath();
                     ctx.fill();
-                    // 雪板
                     ctx.fillStyle = '#dc2626';
                     ctx.save();
                     ctx.rotate(-0.15);
@@ -293,27 +415,19 @@
                     ctx.fillRect(-30, 5, 60, 6);
                     ctx.restore();
                 } else {
-                    // 正常滑行
-                    // 阴影
                     ctx.fillStyle = 'rgba(0,0,0,0.15)';
                     ctx.beginPath();
                     ctx.ellipse(0, 2, 22, 5, 0, 0, Math.PI * 2);
                     ctx.fill();
-                    
-                    // 身体
                     ctx.fillStyle = '#1e3a5f';
                     ctx.fillRect(-9, -38, 18, 28);
-                    // 夹克细节
                     ctx.fillStyle = '#2d4a6f';
                     ctx.fillRect(-9, -30, 18, 3);
                     ctx.fillRect(-9, -20, 18, 3);
-                    
-                    // 头
                     ctx.fillStyle = '#fdbf60';
                     ctx.beginPath();
                     ctx.arc(0, -44, 10, 0, Math.PI * 2);
                     ctx.fill();
-                    // 头盔
                     ctx.fillStyle = '#ff6b35';
                     ctx.beginPath();
                     ctx.arc(0, -46, 11, Math.PI, 0);
@@ -322,15 +436,12 @@
                     ctx.beginPath();
                     ctx.arc(0, -46, 11, 0, Math.PI);
                     ctx.fill();
-                    // 护目镜
                     ctx.fillStyle = '#38bdf8';
                     ctx.beginPath();
                     ctx.ellipse(0, -46, 9, 5, 0, 0, Math.PI * 2);
                     ctx.fill();
                     ctx.fillStyle = 'rgba(255,255,255,0.5)';
                     ctx.fillRect(-4, -48, 5, 3);
-                    
-                    // 围巾飘动
                     ctx.fillStyle = '#dc2626';
                     const scarfX = Math.sin(time / 70) * 10;
                     const scarfY = Math.cos(time / 70) * 3;
@@ -349,8 +460,6 @@
                     ctx.lineTo(-4, -28);
                     ctx.closePath();
                     ctx.fill();
-                    
-                    // 手臂和雪杖
                     ctx.strokeStyle = '#1e3a5f';
                     ctx.lineWidth = 4;
                     ctx.lineCap = 'round';
@@ -362,8 +471,6 @@
                     ctx.moveTo(6, -32);
                     ctx.lineTo(14, -16);
                     ctx.stroke();
-                    
-                    // 雪杖
                     ctx.strokeStyle = '#94a3b8';
                     ctx.lineWidth = 2;
                     ctx.beginPath();
@@ -374,7 +481,6 @@
                     ctx.moveTo(14, -16);
                     ctx.lineTo(20, 6);
                     ctx.stroke();
-                    // 雪杖顶端
                     ctx.fillStyle = '#64748b';
                     ctx.beginPath();
                     ctx.arc(-20, 6, 2, 0, Math.PI * 2);
@@ -382,25 +488,18 @@
                     ctx.beginPath();
                     ctx.arc(20, 6, 2, 0, Math.PI * 2);
                     ctx.fill();
-                    
-                    // 腿
                     ctx.fillStyle = '#1e3a5f';
                     ctx.fillRect(-8, -12, 6, 12);
                     ctx.fillRect(2, -12, 6, 12);
-                    
-                    // 靴子
                     ctx.fillStyle = '#451a03';
                     ctx.fillRect(-10, -2, 10, 5);
                     ctx.fillRect(0, -2, 10, 5);
-                    
-                    // 雪板（带反光）
                     ctx.fillStyle = '#dc2626';
                     ctx.fillRect(-32, -2, 64, 5);
                     ctx.fillRect(-32, 5, 64, 5);
                     ctx.fillStyle = 'rgba(255,255,255,0.2)';
                     ctx.fillRect(-32, -2, 64, 2);
                     ctx.fillRect(-32, 5, 64, 2);
-                    // 雪板前端翘起
                     ctx.fillStyle = '#dc2626';
                     ctx.beginPath();
                     ctx.ellipse(-32, 0.5, 6, 4, -0.3, 0, Math.PI * 2);
@@ -409,7 +508,6 @@
                     ctx.ellipse(-32, 7.5, 6, 4, -0.3, 0, Math.PI * 2);
                     ctx.fill();
                 }
-                
                 ctx.restore();
             },
             
@@ -417,27 +515,20 @@
                 ctx.save();
                 ctx.translate(x, y);
                 ctx.scale(size, size);
-                
-                // 阴影
                 ctx.fillStyle = 'rgba(0,0,0,0.1)';
                 ctx.beginPath();
                 ctx.ellipse(0, 0, 18, 4, 0, 0, Math.PI * 2);
                 ctx.fill();
-                
-                // 树干
                 ctx.fillStyle = '#3d2314';
                 ctx.fillRect(-4, -22, 8, 22);
                 ctx.fillStyle = '#5d3a1a';
                 ctx.fillRect(-3, -20, 2, 18);
-                
-                // 树叶（多层）
                 const layers = [
                     { y: -85, w: 30, h: 55, c: '#064e3b' },
                     { y: -70, w: 26, h: 50, c: '#065f46' },
                     { y: -55, w: 22, h: 45, c: '#047857' },
                     { y: -40, w: 18, h: 35, c: '#059669' }
                 ];
-                
                 for (const layer of layers) {
                     ctx.fillStyle = layer.c;
                     ctx.beginPath();
@@ -447,8 +538,6 @@
                     ctx.closePath();
                     ctx.fill();
                 }
-                
-                // 积雪
                 ctx.fillStyle = '#f8fafc';
                 ctx.beginPath();
                 ctx.moveTo(0, -85);
@@ -462,8 +551,6 @@
                 ctx.lineTo(8, -55);
                 ctx.closePath();
                 ctx.fill();
-                
-                // 细节 - 松针
                 ctx.strokeStyle = 'rgba(255,255,255,0.1)';
                 ctx.lineWidth = 1;
                 for (let i = 0; i < 5; i++) {
@@ -477,7 +564,6 @@
                     ctx.lineTo(12, ay + 8);
                     ctx.stroke();
                 }
-                
                 ctx.restore();
             },
             
@@ -485,14 +571,10 @@
                 ctx.save();
                 ctx.translate(x, y);
                 ctx.scale(size, size);
-                
-                // 阴影
                 ctx.fillStyle = 'rgba(0,0,0,0.15)';
                 ctx.beginPath();
                 ctx.ellipse(0, 2, 20, 5, 0, 0, Math.PI * 2);
                 ctx.fill();
-                
-                // 主体
                 ctx.fillStyle = '#4b5563';
                 ctx.beginPath();
                 ctx.moveTo(-18, 0);
@@ -504,8 +586,6 @@
                 ctx.lineTo(16, 0);
                 ctx.closePath();
                 ctx.fill();
-                
-                // 高光面
                 ctx.fillStyle = '#6b7280';
                 ctx.beginPath();
                 ctx.moveTo(-6, -5);
@@ -515,8 +595,6 @@
                 ctx.lineTo(3, -4);
                 ctx.closePath();
                 ctx.fill();
-                
-                // 裂纹
                 ctx.strokeStyle = '#374151';
                 ctx.lineWidth = 1.5;
                 ctx.beginPath();
@@ -524,27 +602,20 @@
                 ctx.lineTo(2, -20);
                 ctx.lineTo(5, -12);
                 ctx.stroke();
-                
-                // 底部雪
                 ctx.fillStyle = '#f1f5f9';
                 ctx.beginPath();
                 ctx.ellipse(0, -2, 18, 5, 0, 0, Math.PI * 2);
                 ctx.fill();
-                
                 ctx.restore();
             },
             
             snowman(ctx, x, y) {
                 ctx.save();
                 ctx.translate(x, y);
-                
-                // 阴影
                 ctx.fillStyle = 'rgba(0,0,0,0.1)';
                 ctx.beginPath();
                 ctx.ellipse(0, 2, 18, 4, 0, 0, Math.PI * 2);
                 ctx.fill();
-                
-                // 身体
                 ctx.fillStyle = '#f8fafc';
                 ctx.beginPath();
                 ctx.arc(0, -16, 16, 0, Math.PI * 2);
@@ -553,7 +624,6 @@
                 ctx.beginPath();
                 ctx.arc(-4, -20, 10, 0, Math.PI * 2);
                 ctx.fill();
-                
                 ctx.fillStyle = '#f8fafc';
                 ctx.beginPath();
                 ctx.arc(0, -42, 12, 0, Math.PI * 2);
@@ -562,8 +632,6 @@
                 ctx.beginPath();
                 ctx.arc(-3, -46, 7, 0, Math.PI * 2);
                 ctx.fill();
-                
-                // 眼睛
                 ctx.fillStyle = '#1f2937';
                 ctx.beginPath();
                 ctx.arc(-4, -44, 2.5, 0, Math.PI * 2);
@@ -578,8 +646,6 @@
                 ctx.beginPath();
                 ctx.arc(5, -45, 0.8, 0, Math.PI * 2);
                 ctx.fill();
-                
-                // 鼻子
                 ctx.fillStyle = '#f97316';
                 ctx.beginPath();
                 ctx.moveTo(0, -41);
@@ -587,16 +653,12 @@
                 ctx.lineTo(0, -35);
                 ctx.closePath();
                 ctx.fill();
-                
-                // 嘴巴
                 ctx.fillStyle = '#1f2937';
                 for (let i = -1; i <= 1; i++) {
                     ctx.beginPath();
                     ctx.arc(i * 3, -33, 1, 0, Math.PI * 2);
                     ctx.fill();
                 }
-                
-                // 纽扣
                 ctx.fillStyle = '#1f2937';
                 ctx.beginPath();
                 ctx.arc(0, -20, 1.8, 0, Math.PI * 2);
@@ -607,8 +669,6 @@
                 ctx.beginPath();
                 ctx.arc(0, -8, 1.8, 0, Math.PI * 2);
                 ctx.fill();
-                
-                // 手臂（树枝）
                 ctx.strokeStyle = '#5d3a1a';
                 ctx.lineWidth = 2.5;
                 ctx.lineCap = 'round';
@@ -621,8 +681,6 @@
                 ctx.lineTo(24, -30);
                 ctx.lineTo(28, -28);
                 ctx.stroke();
-                
-                // 帽子
                 ctx.fillStyle = '#1e3a5f';
                 ctx.fillRect(-10, -58, 20, 12);
                 ctx.fillRect(-14, -48, 28, 3);
@@ -632,7 +690,6 @@
                 ctx.beginPath();
                 ctx.arc(6, -50, 3, 0, Math.PI * 2);
                 ctx.fill();
-                
                 ctx.restore();
             },
             
@@ -640,7 +697,6 @@
                 ctx.save();
                 ctx.translate(x, y);
                 const wingY = Math.sin(time / 100) * 6;
-                
                 ctx.fillStyle = '#1f2937';
                 ctx.beginPath();
                 ctx.ellipse(0, 0, 10, 4, 0, 0, Math.PI * 2);
@@ -657,7 +713,6 @@
                 ctx.lineTo(8, 0);
                 ctx.closePath();
                 ctx.fill();
-                
                 ctx.restore();
             },
             
@@ -673,6 +728,69 @@
                 ctx.arc(12, -12, 14, 0, Math.PI * 2);
                 ctx.arc(28, -10, 12, 0, Math.PI * 2);
                 ctx.fill();
+                ctx.restore();
+            },
+
+            coin(ctx, x, y, time) {
+                ctx.save();
+                ctx.translate(x, y);
+                const bounce = Math.sin(time / 80) * 3;
+                ctx.translate(0, bounce);
+                const scaleX = Math.abs(Math.sin(time / 150));
+                ctx.scale(scaleX * 0.8 + 0.2, 1);
+                ctx.fillStyle = '#fbbf24';
+                ctx.beginPath();
+                ctx.arc(0, 0, 14, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#f59e0b';
+                ctx.beginPath();
+                ctx.arc(0, 0, 10, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#fde68a';
+                ctx.beginPath();
+                ctx.arc(-3, -3, 4, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            },
+
+            powerup(ctx, x, y, type, time) {
+                ctx.save();
+                ctx.translate(x, y);
+                const hover = Math.sin(time / 100) * 4;
+                ctx.translate(0, hover);
+                const glow = ctx.createRadialGradient(0, 0, 8, 0, 0, 28);
+                glow.addColorStop(0, 'rgba(251,191,36,0.4)');
+                glow.addColorStop(1, 'rgba(251,191,36,0)');
+                ctx.fillStyle = glow;
+                ctx.beginPath();
+                ctx.arc(0, 0, 28, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = 'rgba(255,255,255,0.15)';
+                ctx.beginPath();
+                ctx.arc(0, 0, 18, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(0, 0, 18, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.font = '18px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(
+                    type === 'shield' ? '🛡️' : type === 'boost' ? '⚡' : '✨',
+                    0, 1
+                );
+                ctx.restore();
+            },
+
+            floatingText(ctx, text, x, y, alpha) {
+                ctx.save();
+                ctx.globalAlpha = alpha;
+                ctx.fillStyle = '#fbbf24';
+                ctx.font = 'bold 18px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(text, x, y);
                 ctx.restore();
             }
         };
@@ -692,7 +810,9 @@
                 this.distance = 0;
                 this.level = 1;
                 this.speed = CONFIG.baseSpeed;
+                this.coins = 0;
                 this.highScore = parseInt(localStorage.getItem('skiHighScore') || '0');
+                this.totalCoins = parseInt(localStorage.getItem('skiTotalCoins') || '0');
                 
                 this.player = {
                     x: 100,
@@ -709,6 +829,18 @@
                 this.clouds = [];
                 this.birds = [];
                 this.groundLines = [];
+                this.coinsArr = [];
+                this.powerups = [];
+                this.floatingTexts = [];
+                
+                this.activePowerups = {
+                    shield: 0,
+                    boost: 0,
+                    double: 0
+                };
+                
+                this.combo = 0;
+                this.comboTimer = 0;
                 
                 this.frameCount = 0;
                 this.lastObstacleTime = 0;
@@ -726,11 +858,17 @@
             
             setupInputs() {
                 document.addEventListener('keydown', (e) => {
+                    if (e.code === 'KeyP') {
+                        e.preventDefault();
+                        this.togglePause();
+                        return;
+                    }
                     if (this.state !== 'playing') {
                         if (e.code === 'Space' || e.code === 'Enter') {
                             e.preventDefault();
                             if (this.state === 'menu') this.start();
                             else if (this.state === 'gameover') this.restart();
+                            else if (this.state === 'paused') this.togglePause();
                         }
                         return;
                     }
@@ -754,6 +892,7 @@
                     touchStartY = e.touches[0].clientY;
                     if (this.state === 'menu') this.start();
                     else if (this.state === 'gameover') this.restart();
+                    else if (this.state === 'paused') this.togglePause();
                     else if (this.state === 'playing' && this.player.onGround) this.jump();
                 }, { passive: false });
                 
@@ -767,6 +906,16 @@
                 this.canvas.addEventListener('touchend', () => {
                     this.player.ducking = false;
                 });
+            }
+            
+            togglePause() {
+                if (this.state === 'playing') {
+                    this.state = 'paused';
+                    document.getElementById('pauseScreen').classList.remove('hidden');
+                } else if (this.state === 'paused') {
+                    this.state = 'playing';
+                    document.getElementById('pauseScreen').classList.add('hidden');
+                }
             }
             
             initSnowflakes() {
@@ -816,6 +965,7 @@
                 this.distance = 0;
                 this.level = 1;
                 this.speed = CONFIG.baseSpeed;
+                this.coins = 0;
                 this.player.y = this.groundY;
                 this.player.vy = 0;
                 this.player.jumping = false;
@@ -824,12 +974,20 @@
                 this.obstacles = [];
                 this.particles = [];
                 this.birds = [];
+                this.coinsArr = [];
+                this.powerups = [];
+                this.floatingTexts = [];
+                this.activePowerups = { shield: 0, boost: 0, double: 0 };
+                this.combo = 0;
+                this.comboTimer = 0;
                 this.frameCount = 0;
                 this.lastObstacleTime = 0;
                 
                 document.getElementById('startScreen').classList.add('hidden');
                 document.getElementById('gameOverScreen').classList.add('hidden');
+                document.getElementById('pauseScreen').classList.add('hidden');
                 this.updateUI();
+                this.updatePowerupUI();
             }
             
             restart() {
@@ -842,15 +1000,20 @@
                     this.highScore = this.score;
                     localStorage.setItem('skiHighScore', this.highScore.toString());
                 }
-                document.getElementById('finalScore').textContent = 
-                    `最终分数 ${Math.floor(this.score)}  ·  到达关卡 ${this.level}`;
+                this.totalCoins += this.coins;
+                localStorage.setItem('skiTotalCoins', this.totalCoins.toString());
+                
+                document.getElementById('finalScore').textContent = Math.floor(this.score);
+                document.getElementById('finalCoins').textContent = this.coins;
+                document.getElementById('finalDistance').textContent = Math.floor(this.distance) + 'm';
                 document.getElementById('highScoreDisplay').textContent = 
-                    `最高纪录 ${Math.floor(this.highScore)}`;
+                    `最高纪录 ${Math.floor(this.highScore)}  ·  累计金币 ${this.totalCoins}`;
                 document.getElementById('gameOverScreen').classList.remove('hidden');
             }
             
             update() {
                 this.time += 16;
+                if (this.state === 'paused') return;
                 if (this.state !== 'playing') {
                     this.updateSnowflakes();
                     this.updateClouds();
@@ -858,8 +1021,14 @@
                 }
                 
                 this.frameCount++;
-                this.distance += this.speed / 10;
-                this.score += this.speed / 20;
+                
+                const effectiveSpeed = this.activePowerups.boost > 0 
+                    ? this.speed * CONFIG.boostSpeedMult 
+                    : this.speed;
+                
+                this.distance += effectiveSpeed / 10;
+                const scoreMult = this.activePowerups.double > 0 ? 2 : 1;
+                this.score += effectiveSpeed / 20 * scoreMult;
                 
                 const newLevel = Math.min(Math.floor(this.distance / CONFIG.levelDistance) + 1, CONFIG.maxLevel);
                 if (newLevel > this.level) {
@@ -871,11 +1040,18 @@
                 this.updatePlayer();
                 this.spawnObstacles();
                 this.updateObstacles();
+                this.spawnCoins();
+                this.updateCoins();
+                this.spawnPowerups();
+                this.updatePowerups();
                 this.updateParticles();
                 this.updateSnowflakes();
                 this.updateClouds();
                 this.updateBirds();
                 this.updateGroundLines();
+                this.updateFloatingTexts();
+                this.updatePowerupTimers();
+                this.updateCombo();
                 this.checkCollisions();
                 this.updateUI();
             }
@@ -933,7 +1109,6 @@
                     this.lastObstacleTime = this.frameCount;
                 }
                 
-                // 生成飞鸟
                 if (this.level >= 4 && Math.random() < 0.005) {
                     this.birds.push({
                         x: this.width + 50,
@@ -944,14 +1119,92 @@
             }
             
             updateObstacles() {
+                const effectiveSpeed = this.activePowerups.boost > 0 
+                    ? this.speed * CONFIG.boostSpeedMult 
+                    : this.speed;
                 for (let i = this.obstacles.length - 1; i >= 0; i--) {
                     const obs = this.obstacles[i];
-                    obs.x -= this.speed;
+                    obs.x -= effectiveSpeed;
                     if (!obs.passed && obs.x + obs.width < this.player.x) {
                         obs.passed = true;
-                        this.score += 10;
+                        this.score += 10 * (this.activePowerups.double > 0 ? 2 : 1);
+                        this.addCombo();
                     }
                     if (obs.x < -120) this.obstacles.splice(i, 1);
+                }
+            }
+            
+            spawnCoins() {
+                if (Math.random() < 0.015 + this.level * 0.003) {
+                    const pattern = Math.floor(Math.random() * 3);
+                    const baseY = this.groundY - rand(20, 120);
+                    const startX = this.width + 40;
+                    
+                    if (pattern === 0) {
+                        this.coinsArr.push({ x: startX, y: baseY, collected: false });
+                    } else if (pattern === 1) {
+                        for (let i = 0; i < 3; i++) {
+                            this.coinsArr.push({ x: startX + i * 35, y: baseY, collected: false });
+                        }
+                    } else {
+                        for (let i = 0; i < 5; i++) {
+                            const arcY = baseY - Math.sin(i * 0.6) * 40;
+                            this.coinsArr.push({ x: startX + i * 30, y: arcY, collected: false });
+                        }
+                    }
+                }
+            }
+            
+            updateCoins() {
+                const effectiveSpeed = this.activePowerups.boost > 0 
+                    ? this.speed * CONFIG.boostSpeedMult 
+                    : this.speed;
+                for (let i = this.coinsArr.length - 1; i >= 0; i--) {
+                    const c = this.coinsArr[i];
+                    c.x -= effectiveSpeed;
+                    if (c.x < -40) this.coinsArr.splice(i, 1);
+                }
+            }
+            
+            spawnPowerups() {
+                if (Math.random() < 0.002 + this.level * 0.0005) {
+                    const types = ['shield', 'boost', 'double'];
+                    const type = types[Math.floor(Math.random() * types.length)];
+                    const y = this.groundY - rand(30, 140);
+                    this.powerups.push({
+                        type, x: this.width + 40, y,
+                        collected: false
+                    });
+                }
+            }
+            
+            updatePowerups() {
+                const effectiveSpeed = this.activePowerups.boost > 0 
+                    ? this.speed * CONFIG.boostSpeedMult 
+                    : this.speed;
+                for (let i = this.powerups.length - 1; i >= 0; i--) {
+                    const p = this.powerups[i];
+                    p.x -= effectiveSpeed;
+                    if (p.x < -40) this.powerups.splice(i, 1);
+                }
+            }
+            
+            addCombo() {
+                this.combo++;
+                this.comboTimer = CONFIG.comboWindow;
+                if (this.combo >= 3) {
+                    const bonus = this.combo * 5;
+                    this.score += bonus;
+                    this.showFloatingText(`+${bonus} 连击x${this.combo}!`, this.player.x, this.player.y - 60);
+                }
+            }
+            
+            updateCombo() {
+                if (this.comboTimer > 0) {
+                    this.comboTimer--;
+                    if (this.comboTimer <= 0) {
+                        this.combo = 0;
+                    }
                 }
             }
             
@@ -967,8 +1220,11 @@
             }
             
             updateSnowflakes() {
+                const moveSpeed = this.state === 'playing' 
+                    ? (this.activePowerups.boost > 0 ? this.speed * CONFIG.boostSpeedMult * 0.1 : this.speed * 0.1)
+                    : 0.3;
                 for (const f of this.snowflakes) {
-                    f.x -= this.state === 'playing' ? this.speed * 0.1 : 0.3;
+                    f.x -= moveSpeed;
                     f.x += f.drift;
                     f.y += f.speed;
                     if (f.x < 0) f.x = this.width;
@@ -999,13 +1255,44 @@
             }
             
             updateGroundLines() {
+                const effectiveSpeed = this.activePowerups.boost > 0 
+                    ? this.speed * CONFIG.boostSpeedMult 
+                    : this.speed;
                 for (const line of this.groundLines) {
-                    line.x -= this.speed;
+                    line.x -= effectiveSpeed;
                     if (line.x + line.length < 0) {
                         line.x = this.width + Math.random() * 100;
                         line.y = this.groundY + Math.random() * (this.height - this.groundY);
                     }
                 }
+            }
+            
+            updateFloatingTexts() {
+                for (let i = this.floatingTexts.length - 1; i >= 0; i--) {
+                    const ft = this.floatingTexts[i];
+                    ft.y -= 1.5;
+                    ft.life--;
+                    ft.alpha = ft.life / ft.maxLife;
+                    if (ft.life <= 0) this.floatingTexts.splice(i, 1);
+                }
+            }
+            
+            updatePowerupTimers() {
+                for (const key of Object.keys(this.activePowerups)) {
+                    if (this.activePowerups[key] > 0) {
+                        this.activePowerups[key]--;
+                    }
+                }
+                this.updatePowerupUI();
+            }
+            
+            showFloatingText(text, x, y) {
+                this.floatingTexts.push({
+                    text, x, y,
+                    life: 50,
+                    maxLife: 50,
+                    alpha: 1
+                });
             }
             
             createSnowBurst(x, y, count) {
@@ -1039,12 +1326,29 @@
                 }
             }
             
+            createSparkle(x, y, color = '#fbbf24') {
+                for (let i = 0; i < 10; i++) {
+                    this.particles.push({
+                        x, y,
+                        vx: (Math.random() - 0.5) * 6,
+                        vy: (Math.random() - 0.5) * 6 - 2,
+                        life: rand(20, 35),
+                        maxLife: 35,
+                        alpha: 1,
+                        color: color,
+                        size: rand(2, 4)
+                    });
+                }
+            }
+            
             checkCollisions() {
                 const p = this.player;
                 let pTop = p.y - (p.ducking ? 28 : 55);
                 let pBottom = p.y;
                 let pLeft = p.x - 16;
                 let pRight = p.x + 16;
+                
+                const isInvincible = this.activePowerups.boost > 0;
                 
                 for (const obs of this.obstacles) {
                     const obsTop = obs.y - obs.height;
@@ -1054,9 +1358,50 @@
                     
                     if (pRight > obsLeft + 5 && pLeft < obsRight - 5 &&
                         pBottom > obsTop + 5 && pTop < obsBottom - 5) {
-                        this.createSnowBurst(p.x, p.y, 20);
-                        this.gameOver();
-                        return;
+                        
+                        if (this.activePowerups.shield > 0) {
+                            this.activePowerups.shield = 0;
+                            this.createSparkle(p.x, p.y, '#60a5fa');
+                            this.showFloatingText('护盾抵消!', p.x, p.y - 50);
+                            obs.x = -200;
+                            continue;
+                        }
+                        
+                        if (!isInvincible) {
+                            this.createSnowBurst(p.x, p.y, 20);
+                            this.gameOver();
+                            return;
+                        }
+                    }
+                }
+                
+                for (const c of this.coinsArr) {
+                    if (c.collected) continue;
+                    const dx = p.x - c.x;
+                    const dy = (p.y - 25) - c.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist < 30) {
+                        c.collected = true;
+                        this.coins++;
+                        const mult = this.activePowerups.double > 0 ? 2 : 1;
+                        const val = CONFIG.coinValue * mult;
+                        this.score += val;
+                        this.createSparkle(c.x, c.y, '#fbbf24');
+                        this.showFloatingText(`+${val}`, c.x, c.y - 20);
+                    }
+                }
+                
+                for (const pu of this.powerups) {
+                    if (pu.collected) continue;
+                    const dx = p.x - pu.x;
+                    const dy = (p.y - 25) - pu.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist < 30) {
+                        pu.collected = true;
+                        this.activePowerups[pu.type] = CONFIG.powerupDuration;
+                        const names = { shield: '护盾', boost: '加速冲刺', double: '双倍分数' };
+                        this.createSparkle(pu.x, pu.y, '#a78bfa');
+                        this.showFloatingText(names[pu.type] + '!', pu.x, pu.y - 25);
                     }
                 }
             }
@@ -1064,7 +1409,28 @@
             updateUI() {
                 document.getElementById('levelDisplay').textContent = this.level;
                 document.getElementById('scoreDisplay').textContent = Math.floor(this.score);
+                document.getElementById('coinDisplay').textContent = this.coins;
                 document.getElementById('distanceDisplay').textContent = Math.floor(this.distance);
+            }
+            
+            updatePowerupUI() {
+                const slots = {
+                    shield: { slot: 'slotShield', timer: 'timerShield' },
+                    boost: { slot: 'slotBoost', timer: 'timerBoost' },
+                    double: { slot: 'slotDouble', timer: 'timerDouble' }
+                };
+                for (const [key, { slot, timer }] of Object.entries(slots)) {
+                    const el = document.getElementById(slot);
+                    const bar = document.getElementById(timer);
+                    if (this.activePowerups[key] > 0) {
+                        el.classList.add('active');
+                        const pct = (this.activePowerups[key] / CONFIG.powerupDuration) * 100;
+                        bar.style.width = pct + '%';
+                    } else {
+                        el.classList.remove('active');
+                        bar.style.width = '0%';
+                    }
+                }
             }
             
             showLevelPopup() {
@@ -1074,7 +1440,6 @@
                 setTimeout(() => popup.classList.remove('show'), 2200);
             }
             
-            // ==================== 绘制 ====================
             draw() {
                 const ctx = this.ctx;
                 ctx.clearRect(0, 0, this.width, this.height);
@@ -1086,9 +1451,12 @@
                 this.drawHills(ctx);
                 this.drawGround(ctx);
                 this.drawGroundDetail(ctx);
+                this.drawCoins(ctx);
+                this.drawPowerups(ctx);
                 this.drawObstacles(ctx);
                 this.drawPlayer(ctx);
                 this.drawParticles(ctx);
+                this.drawFloatingTexts(ctx);
                 this.drawBirds(ctx);
                 this.drawSnowflakes(ctx);
                 
@@ -1096,7 +1464,6 @@
                     this.drawWindEffect(ctx);
                 }
                 
-                // 暗角效果
                 if (this.level > 6) {
                     const grad = ctx.createRadialGradient(
                         this.width / 2, this.height / 2, this.height * 0.4,
@@ -1133,9 +1500,7 @@
             
             drawSunMoon(ctx) {
                 if (this.level <= 6) {
-                    // 太阳
                     const sx = this.width - 140, sy = 80;
-                    // 光晕
                     const glow = ctx.createRadialGradient(sx, sy, 10, sx, sy, 80);
                     glow.addColorStop(0, 'rgba(251, 191, 36, 0.3)');
                     glow.addColorStop(1, 'rgba(251, 191, 36, 0)');
@@ -1143,7 +1508,6 @@
                     ctx.beginPath();
                     ctx.arc(sx, sy, 80, 0, Math.PI * 2);
                     ctx.fill();
-                    // 太阳本体
                     ctx.fillStyle = '#fbbf24';
                     ctx.beginPath();
                     ctx.arc(sx, sy, 22, 0, Math.PI * 2);
@@ -1153,7 +1517,6 @@
                     ctx.arc(sx, sy, 18, 0, Math.PI * 2);
                     ctx.fill();
                 } else {
-                    // 月亮
                     const mx = this.width - 140, my = 80;
                     ctx.fillStyle = '#e2e8f0';
                     ctx.beginPath();
@@ -1163,7 +1526,6 @@
                     ctx.beginPath();
                     ctx.arc(mx + 8, my - 4, 16, 0, Math.PI * 2);
                     ctx.fill();
-                    // 星星
                     ctx.fillStyle = 'rgba(255,255,255,0.8)';
                     for (let i = 0; i < 20; i++) {
                         const sx = (i * 137.5 + this.time * 0.01) % this.width;
@@ -1182,12 +1544,13 @@
             }
             
             drawMountains(ctx) {
-                const offset = (this.frameCount * this.speed * 0.15) % 400;
+                const effectiveSpeed = this.activePowerups.boost > 0 && this.state === 'playing'
+                    ? this.speed * CONFIG.boostSpeedMult 
+                    : this.speed;
+                const offset = (this.frameCount * effectiveSpeed * 0.15) % 400;
                 const colors = this.level > 6 
                     ? ['#1e293b', '#334155', '#475569']
                     : ['#94a3b8', '#cbd5e1', '#e2e8f0'];
-                
-                // 远山
                 ctx.fillStyle = colors[2];
                 for (let i = -1; i < 4; i++) {
                     const bx = i * 400 - offset;
@@ -1198,11 +1561,9 @@
                     ctx.closePath();
                     ctx.fill();
                 }
-                
-                // 中景山
                 ctx.fillStyle = colors[1];
                 for (let i = -1; i < 5; i++) {
-                    const bx = i * 320 - (this.frameCount * this.speed * 0.25) % 320;
+                    const bx = i * 320 - (this.frameCount * effectiveSpeed * 0.25) % 320;
                     ctx.beginPath();
                     ctx.moveTo(bx, this.groundY - 20);
                     ctx.lineTo(bx + 120, this.groundY - 120);
@@ -1217,8 +1578,10 @@
                 const colors = this.level > 6
                     ? ['#334155', '#475569']
                     : ['#e2e8f0', '#f1f5f9'];
-                
-                const offset = (this.frameCount * this.speed * 0.4) % 300;
+                const effectiveSpeed = this.activePowerups.boost > 0 && this.state === 'playing'
+                    ? this.speed * CONFIG.boostSpeedMult 
+                    : this.speed;
+                const offset = (this.frameCount * effectiveSpeed * 0.4) % 300;
                 ctx.fillStyle = colors[0];
                 ctx.beginPath();
                 ctx.moveTo(0, this.groundY);
@@ -1229,10 +1592,8 @@
                 ctx.lineTo(this.width, this.groundY);
                 ctx.closePath();
                 ctx.fill();
-                
-                // 雪丘
                 ctx.fillStyle = colors[1];
-                const offset2 = (this.frameCount * this.speed * 0.5) % 250;
+                const offset2 = (this.frameCount * effectiveSpeed * 0.5) % 250;
                 for (let i = -1; i < 6; i++) {
                     const x = i * 250 - offset2;
                     ctx.beginPath();
@@ -1242,11 +1603,8 @@
             }
             
             drawGround(ctx) {
-                // 主地面
                 ctx.fillStyle = this.level > 6 ? '#94a3b8' : '#f8fafc';
                 ctx.fillRect(0, this.groundY, this.width, this.height - this.groundY);
-                
-                // 地面渐变
                 const grad = ctx.createLinearGradient(0, this.groundY, 0, this.height);
                 grad.addColorStop(0, this.level > 6 ? 'rgba(148,163,184,0)' : 'rgba(248,250,252,0)');
                 grad.addColorStop(1, this.level > 6 ? 'rgba(71,85,105,0.5)' : 'rgba(203,213,225,0.3)');
@@ -1255,11 +1613,12 @@
             }
             
             drawGroundDetail(ctx) {
-                // 滑雪痕迹线
+                const effectiveSpeed = this.activePowerups.boost > 0 && this.state === 'playing'
+                    ? this.speed * CONFIG.boostSpeedMult 
+                    : this.speed;
                 ctx.strokeStyle = this.level > 6 ? 'rgba(255,255,255,0.08)' : 'rgba(203,213,225,0.4)';
                 ctx.lineWidth = 1.5;
-                
-                const offset = (this.frameCount * this.speed) % 120;
+                const offset = (this.frameCount * effectiveSpeed) % 120;
                 for (let i = 0; i < 12; i++) {
                     const x = i * 100 - offset;
                     ctx.beginPath();
@@ -1267,8 +1626,6 @@
                     ctx.lineTo(x - 40, this.groundY + 50);
                     ctx.stroke();
                 }
-                
-                // 地面纹理线
                 for (const line of this.groundLines) {
                     ctx.strokeStyle = this.level > 6 ? 'rgba(255,255,255,0.05)' : 'rgba(203,213,225,0.3)';
                     ctx.lineWidth = line.width;
@@ -1277,9 +1634,7 @@
                     ctx.lineTo(line.x - line.length, line.y + line.length * 0.3);
                     ctx.stroke();
                 }
-                
-                // 雪堆
-                const offset2 = (this.frameCount * this.speed) % 180;
+                const offset2 = (this.frameCount * effectiveSpeed) % 180;
                 for (let i = -1; i < 8; i++) {
                     const x = i * 180 - offset2 + 60;
                     ctx.fillStyle = this.level > 6 ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.5)';
@@ -1289,14 +1644,37 @@
                 }
             }
             
+            drawCoins(ctx) {
+                for (const c of this.coinsArr) {
+                    if (!c.collected) {
+                        Sprite.coin(ctx, c.x, c.y, this.time);
+                    }
+                }
+            }
+            
+            drawPowerups(ctx) {
+                for (const pu of this.powerups) {
+                    if (!pu.collected) {
+                        Sprite.powerup(ctx, pu.x, pu.y, pu.type, this.time);
+                    }
+                }
+            }
+            
+            drawFloatingTexts(ctx) {
+                for (const ft of this.floatingTexts) {
+                    Sprite.floatingText(ctx, ft.text, ft.x, ft.y, ft.alpha);
+                }
+            }
+            
             drawObstacles(ctx) {
-                // 远景树（在障碍物后面）
-                const treeOffset = (this.frameCount * this.speed * 0.35) % 250;
+                const effectiveSpeed = this.activePowerups.boost > 0 && this.state === 'playing'
+                    ? this.speed * CONFIG.boostSpeedMult 
+                    : this.speed;
+                const treeOffset = (this.frameCount * effectiveSpeed * 0.35) % 250;
                 for (let i = -1; i < 7; i++) {
                     const x = i * 250 - treeOffset + 30;
                     Sprite.tree(ctx, x, this.groundY - 5, 0.45);
                 }
-                
                 for (const obs of this.obstacles) {
                     if (obs.type === 'tree') Sprite.tree(ctx, obs.x, obs.y, obs.size);
                     else if (obs.type === 'rock') Sprite.rock(ctx, obs.x, obs.y, obs.size);
@@ -1308,8 +1686,8 @@
                 let state = 'normal';
                 if (this.player.jumping) state = 'jumping';
                 else if (this.player.ducking) state = 'ducking';
-                
-                Sprite.skier(ctx, this.player.x, this.player.y, state, this.time);
+                const invincible = this.activePowerups.boost > 0;
+                Sprite.skier(ctx, this.player.x, this.player.y, state, this.time, invincible);
             }
             
             drawParticles(ctx) {
